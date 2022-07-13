@@ -10,9 +10,11 @@ function main(num_particles, num_interactions, AT)
     res = (1080, 1920)
     pix = Pixels(res; AT = AT, logscale = false, FT = FT)
 
-    lolli = LolliPerson(2)
+    lolli = Lolli.LolliPerson(2.0)
 
-    render_lolli!(pix, lolli, num_particles, num_interactions; AT = AT, FT = FT)
+    Lolli.render_lolli!(pix, lolli,
+                        num_particles, num_interactions, bounds, res;
+                        AT = AT, FT = FT)
 
     filename = "out.png"
     write_image([pix], filename)

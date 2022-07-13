@@ -3,15 +3,15 @@ export Lolli
 module Lolli
 
 import Fae: @fum, FractalUserMethod, FractalInput, Colors,
-            define_circle, update_circle!,
-            define_rectangle, update_rectangle!, Pixels
+            define_circle, update_circle!, fractal_flame!, 
+            define_rectangle, update_rectangle!, Pixels, fee, Hutchinson
 
 mutable struct LolliPerson
-    head::FractalUserMethod
-    eyes::Vector{FractalUserMethod}
-    body::FractalUserMethod
+    head::Hutchinson
+    eyes::Vector{Hutchinson}
+    body::Hutchinson
     angle::Union{Float32, Float64, FractalInput}
-    foot_pos::Union{Tuple{FT}, FractalInput} where FT <: Union{Float32, Float64}
+    foot_pos::Union{Tuple, FractalInput} where FT <: Union{Float32, Float64}
     head_height::Union{Float32, Float64, FractalInput}
 
     eye_color::FractalUserMethod
@@ -36,35 +36,71 @@ place_eyes = @fum function place_eyes(x, y;
 
 end
 
-function LolliPerson(height; angle=0, foot_pos=(0,0), body_multiplier = 1,
+function LolliPerson(height; angle=0.0, foot_pos=(0.0,0.0),
+                     body_multiplier = 1.0,
                      eye_color = Colors.white, body_color = Colors.black,
-                     head_position = (0,0), head_radius = 1,
-                     eye_radius = 0, eye_angle = 0,
+                     head_position = (0.0,0.0), head_radius = 1.0,
+                     eye_radius = 0.0, eye_angle = 0.0,
                      name = "", AT = Array, diagnostic = true)
 
-    body = define_rectangle((-height, 0), 0, body_multiplier, height,
+    body = define_rectangle((-height, 0.0), 0.0, body_multiplier, height,
                             body_color; name = "body"*name,
                             diagnostic = diagnostic, AT = AT)
 
-    head = define_circle((0, 0), 1, body_color;
+    head = define_circle((0.0, 0.0), 1.0, body_color;
                          name = "head"*name, diagnostic = diagnostic,
                          AT = AT)
 
-    eyeball = define_circle((0, 0), 1, body_color;
+    eyeball = define_circle((0.0, 0.0), 1.0, body_color;
                             name = "head"*name, diagnostic = diagnostic,
                             AT = AT)
 
+    # finding the FractalInputs
+    kwargs = [eye_radius, eye_angle, head_position, head_radius]
+
+    eye_kwargs = [FractalInput() for i = 1:length(kwargs)]
+    count = 1
+    for i = 1:length(eye_kwargs)
+        if isa(kwargs[i], FractalInput)
+            eye_kwargs[count] = kwargs[i]
+            count += 1
+        end
+    end
+
+    if count == 1
+        eye_kwargs = []
+    else
+        eye_kwargs = eye_kwargs[1:count-1]
+    end
+    
     eyes = fee([place_eyes(eye_radius = eye_radius, eye_angle = eye_angle,
                            head_position = head_position,
                            head_radius = head_radius, right_eye = 0),
                 place_eyes(eye_radius = eye_radius, eye_angle = eye_angle,
                            head_position = head_position,
-                           head_radius = head_radius, right_eye = 1)])
+                           head_radius = head_radius, right_eye = 1)],
+                eye_kwargs, [eye_color, eye_color], (0.5, 0.5))
 
     return LolliPerson(head, [eyeball, eyes], body, angle,
                        foot_pos, height, eye_color,
                        body_color, nothing, nothing, nothing)
     
+end
+
+function render_lolli(lolli::LolliPerson,
+                      num_particles, num_iterations, bounds, res;
+                      logscale = false, AT = Array, FT = Float32,
+                      num_ignore = 20, diagnostic = false, numthreads = 256,
+                      numcores = 4)
+    pix = Pixels(res; AT = AT, FT = FT, logscale = logscale)
+
+    render_lolli!(pix, lolli, nothing, nothing, nothing, 
+                  num_particles, num_iterations, bounds, res;
+                  AT = AT, FT = FT, num_ignore = num_ignore, 
+                  diagnostic = diagnostic, numthreads = numthreads,
+                  numcores = numcores)
+
+    return pix
 end
 
 function render_lolli(lolli::LolliPerson, head_smear, eye_smear, body_smear,
@@ -83,28 +119,66 @@ function render_lolli(lolli::LolliPerson, head_smear, eye_smear, body_smear,
     return pix
 end
 
-function render_lolli!(pix::Pixels, lolli::LolliPerson, head_smear, eye_smear,
-                       body_smear, num_particles, num_iterations, bounds;
+function render_lolli!(pix::Pixels, lolli::LolliPerson,
+                       num_particles, num_iterations, bounds, res;
                        AT = Array, FT = Float32, num_ignore = 20,
                        diagnostic = false, numthreads = 256, numcores = 4)
 
-    fractal_flame!(pix, lolli.body, body_smear, num_particles, num_iterations,
-                   bounds, res; AT = AT, FT = FT, diagnostic = diagnostic,
-                   num_ignore = num_ignore, numthreads = numthreads,
-                   numcores = numcores)
+    render_lolli!(pix, lolli, nothing, nothing, nothing,
+                  num_particles, num_iterations, bounds, res;
+                  AT = AT, FT = FT, num_ignore = num_ignore, 
+                  diagnostic = diagnostic, numthreads = numthreads,
+                  numcores = numcores)
 
-    fractal_flame!(pix, lolli.head, head_smear, num_particles, num_iterations,
-                   bounds, res; AT = AT, FT = FT, diagnostic = diagnostic,
-                   num_ignore = num_ignore, numthreads = numthreads,
-                   numcores = numcores)
+end
 
-    final_eyes = fee([lolli.eyes[2:end]..., eye_smear]; final = true,
-                     diagnostic = diagnostic)
-    fractal_flame!(pix, lolli.eyes[1], final_eyes,
-                   num_particles, num_iterations,
-                   bounds, res; AT = AT, FT = FT, diagnostic = diagnostic,
-                   num_ignore = num_ignore, numthreads = numthreads,
-                   numcores = numcores)
+function render_lolli!(pix::Pixels, lolli::LolliPerson, head_smear, eye_smear,
+                       body_smear, num_particles, num_iterations, bounds, res;
+                       AT = Array, FT = Float32, num_ignore = 20,
+                       diagnostic = false, numthreads = 256, numcores = 4)
+
+    if isnothing(body_smear)
+        fractal_flame!(pix, lolli.body, num_particles, num_iterations,
+                       bounds, res; AT = AT, FT = FT, diagnostic = diagnostic,
+                       num_ignore = num_ignore, numthreads = numthreads,
+                       numcores = numcores)
+    else
+        fractal_flame!(pix, lolli.body, body_smear,
+                       num_particles, num_iterations,
+                       bounds, res; AT = AT, FT = FT, diagnostic = diagnostic,
+                       num_ignore = num_ignore, numthreads = numthreads,
+                       numcores = numcores)
+    end
+
+    if isnothing(head_smear)
+        fractal_flame!(pix, lolli.head, num_particles, num_iterations,
+                       bounds, res; AT = AT, FT = FT, diagnostic = diagnostic,
+                       num_ignore = num_ignore, numthreads = numthreads,
+                       numcores = numcores)
+    else
+        fractal_flame!(pix, lolli.head, head_smear,
+                       num_particles, num_iterations,
+                       bounds, res; AT = AT, FT = FT, diagnostic = diagnostic,
+                       num_ignore = num_ignore, numthreads = numthreads,
+                       numcores = numcores)
+    end
+
+    if isnothing(eye_smear)
+        final_eyes = fee(lolli.eyes[2:end])
+        fractal_flame!(pix, lolli.eyes[1], final_eyes, 
+                       num_particles, num_iterations,
+                       bounds, res; AT = AT, FT = FT, diagnostic = diagnostic,
+                       num_ignore = num_ignore, numthreads = numthreads,
+                       numcores = numcores)
+    else
+        final_eyes = fee([lolli.eyes[2:end]..., eye_smear]; final = true,
+                         diagnostic = diagnostic)
+        fractal_flame!(pix, lolli.eyes[1], final_eyes,
+                       num_particles, num_iterations,
+                       bounds, res; AT = AT, FT = FT, diagnostic = diagnostic,
+                       num_ignore = num_ignore, numthreads = numthreads,
+                       numcores = numcores)
+    end
 end
 
 # This brings a lolli from loc 1 to loc 2

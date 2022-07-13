@@ -1,6 +1,7 @@
 export define_rectangle, update_rectangle!
 # Returns back H, colors, and probs for a square
-function define_rectangle(pos::Vector{FT}, theta::FT, scale_x::FT, scale_y,
+function define_rectangle(pos::Union{Vector{FT}, Tuple},
+                          theta::FT, scale_x::FT, scale_y,
                           color; AT = Array,
                           name = "rectangle",
                           diagnostic = false) where FT <: AbstractFloat
@@ -21,7 +22,7 @@ function define_rectangle(pos::Vector{FT}, theta::FT, scale_x::FT, scale_y,
 end
 
 # Returns back H, colors, and probs for a square
-function define_square(pos::Vector{FT}, theta::FT, scale::FT,
+function define_square(pos::Union{Vector{FT}, Tuple}, theta::FT, scale::FT,
                        color; AT = Array,
                        name = "square",
                        diagnostic = false) where FT <: AbstractFloat
@@ -31,7 +32,8 @@ function define_square(pos::Vector{FT}, theta::FT, scale::FT,
 end
 
 # This specifically returns the fums for a square
-function define_rectangle_operators(pos::Vector{FT}, theta::FT,
+function define_rectangle_operators(pos::Union{Vector{FT}, Tuple},
+                                    theta::FT,
                                     scale_x, scale_y;
                                     name="rectangle") where FT <: AbstractFloat
 
@@ -71,16 +73,17 @@ function update_square!(H, pos, theta, scale; fnum = 4)
     update_rectangle!(H, pos, theta, scale, scale, nothing; fnum = fnum)
 end
 
-function update_square!(H::Hutchinson, pos::Vector{F}, theta::F,
-                        scale, color::Union{Array{F}, Nothing};
+function update_square!(H::Hutchinson, pos::Union{Vector{F}, Tuple},
+                        theta::F, scale, color::Union{Array{F}, Nothing};
                         FT = Float64, AT = Array,
                         fnum = 4) where F <: AbstractFloat
     update_rectangle!(H, pos, theta, scale, scale, color; FT = FT, AT = AT,
                       fnum = fnum)
 end
 
-function update_rectangle!(H::Hutchinson, pos::Vector{F}, theta::F,
-                           scale_x, scale_y, color::Union{Array{F}, Nothing};
+function update_rectangle!(H::Hutchinson, pos::Union{Vector{F}, Tuple},
+                           theta::F, scale_x, scale_y,
+                           color::Union{Array{F}, Nothing};
                            FT = Float64, AT = Array,
                            fnum = 4) where F <: AbstractFloat
 
